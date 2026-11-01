@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flashcard Quiz App | Vanshika Punjabi</title>
+  <style>
+    :root { --c1: #818cf8; --c2: #c084fc; --c3: #38bdf8; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      color: #f8fafc;
+      background: #0b1020;
+    }
+
+    /* Glowing background */
+    .blob {
+      position: fixed; border-radius: 50%; filter: blur(90px); opacity: .5; z-index: 0;
+      transition: background-color 1.4s ease; animation: float 14s ease-in-out infinite;
+    }
+    .blob.one   { width: 420px; height: 420px; background: var(--c1); top: -120px; left: -100px; }
+    .blob.two   { width: 420px; height: 420px; background: var(--c2); bottom: -140px; right: -100px; animation-delay: -6s; }
+    .blob.three { width: 280px; height: 280px; background: var(--c3); top: 45%; left: 60%; animation-delay: -10s; }
+    @keyframes float { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,-30px) scale(1.1); } }
+
+    .app {
+      position: relative; z-index: 1; width: 100%; max-width: 640px;
+      padding: 32px 26px 22px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 28px;
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 25px 60px rgba(0,0,0,.45);
+      animation: rise .8s ease both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+
+    header { text-align: center; }
+    .badge {
+      display: inline-block; padding: 6px 14px; margin-bottom: 12px;
+      font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+      color: #e2e8f0; background: rgba(255,255,255,.1); border-radius: 999px;
+    }
+    h1 { font-size: 1.9rem; letter-spacing: .01em; }
+    h1 span { background: linear-gradient(90deg, var(--c1), var(--c2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .by { margin-top: 6px; font-size: .9rem; color: #cbd5e1; }
+    .by b { color: #fff; font-weight: 600; }
+
+    .stats { display: flex; justify-content: space-between; margin: 22px 2px 8px; font-size: .85rem; color: #cbd5e1; }
+    .progress { height: 6px; background: rgba(255,255,255,.12); border-radius: 99px; overflow: hidden; }
+    #bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--c1), var(--c2)); transition: width .4s ease; }
+
+    /* Flip card */
+    .scene { perspective: 1100px; margin: 22px 0 18px; }
+    .flipper { position: relative; height: 270px; transform-style: preserve-3d; transition: transform .65s cubic-bezier(.4,.2,.2,1); cursor: pointer; }
+    .flipper.flipped { transform: rotateY(180deg); }
+    .face {
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 28px; text-align: center; border-radius: 22px; overflow-y: auto;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    }
+    .front { background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.2); }
+    .back  { background: linear-gradient(135deg, rgba(129,140,248,.3), rgba(192,132,252,.3)); border: 1px solid rgba(255,255,255,.3); transform: rotateY(180deg); }
+    .label { font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; color: var(--c1); margin-bottom: 14px; transition: color 1.4s; }
+    .face p { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.25rem, 4.2vw, 1.7rem); font-style: italic; line-height: 1.5; word-break: break-word; }
+    .mastered-tag {
+      position: absolute; top: 14px; right: 14px; padding: 4px 11px; font-size: .72rem; font-weight: 600;
+      color: #bbf7d0; background: rgba(34,197,94,.22); border: 1px solid rgba(34,197,94,.5); border-radius: 99px;
+    }
+
+    /* Buttons */
+    button { font: inherit; color: #fff; border: none; cursor: pointer; transition: transform .15s, background .25s, box-shadow .25s; }
+    button:active:not(:disabled) { transform: scale(.95); }
+    button:focus-visible, textarea:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    button:disabled { opacity: .35; cursor: not-allowed; }
+    svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+    .show {
+      display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 15px;
+      font-size: 1.02rem; font-weight: 600; border-radius: 16px;
+      background: linear-gradient(135deg, var(--c1), var(--c2)); box-shadow: 0 10px 28px rgba(0,0,0,.35);
+    }
+    .show:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(0,0,0,.45); }
+
+    .nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; margin-top: 12px; }
+    .nav button {
+      display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; font-weight: 600; border-radius: 14px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+    }
+    .nav button:hover:not(:disabled) { background: rgba(255,255,255,.2); }
+    .nav .mid { width: 52px; padding: 0; }
+    .nav .mid.on { background: rgba(34,197,94,.25); border-color: rgba(34,197,94,.6); color: #bbf7d0; }
+
+    .tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+    .tool {
+      display: inline-flex; align-items: center; gap: 7px; padding: 10px 17px; font-size: .88rem;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 99px;
+    }
+    .tool svg { width: 17px; height: 17px; }
+    .tool:hover:not(:disabled) { background: rgba(255,255,255,.18); transform: translateY(-2px); }
+    .tool.danger:hover:not(:disabled) { background: rgba(244,63,94,.35); }
+
+    .empty { text-align: center; padding: 56px 10px 30px; color: #cbd5e1; }
+    .empty h2 { margin-bottom: 8px; color: #fff; }
+
+    footer { margin-top: 24px; padding-top: 16px; text-align: center; font-size: .8rem; color: rgba(226,232,240,.7); border-top: 1px solid rgba(255,255,255,.1); }
+    footer b { color: #fff; }
+    .hint { margin-top: 4px; font-size: .74rem; opacity: .75; }
+
+    /* Dialogs */
+    dialog { width: min(92vw, 460px); margin: auto; padding: 26px; color: #f8fafc; background: #131a33; border: 1px solid rgba(255,255,255,.2); border-radius: 22px; }
+    dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
+    dialog h2 { margin-bottom: 8px; font-size: 1.2rem; }
+    dialog p.msg { color: #cbd5e1; font-size: .95rem; }
+    label { display: block; margin: 14px 0 6px; font-size: .85rem; color: #cbd5e1; }
+    textarea { width: 100%; min-height: 84px; padding: 12px; resize: vertical; font: inherit; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); border-radius: 12px; }
+    .error { min-height: 18px; margin-top: 8px; font-size: .85rem; color: #fda4af; }
+    .actions { display: flex; gap: 10px; margin-top: 14px; justify-content: flex-end; }
+    .actions button { padding: 11px 22px; border-radius: 12px; font-weight: 600; }
+    .cancel { background: rgba(255,255,255,.1); }
+    .save { background: linear-gradient(135deg, var(--c1), var(--c2)); }
+    .remove { background: #e11d48; }
+
+    #toast {
+      position: fixed; left: 50%; bottom: 24px; z-index: 10; padding: 11px 20px; font-size: .9rem;
+      background: rgba(15,23,42,.95); border: 1px solid rgba(255,255,255,.2); border-radius: 99px;
+      transform: translate(-50%, 30px); opacity: 0; pointer-events: none; transition: all .3s ease;
+    }
+    #toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 480px) {
+      .app { padding: 26px 16px 18px; }
+      h1 { font-size: 1.6rem; }
+      .flipper { height: 250px; }
+      .nav button span { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="blob one"></div><div class="blob two"></div><div class="blob three"></div>
+
+  <main class="app">
+    <header>
+      <span class="badge">Study Smarter</span>
+      <h1>Flashcard <span>Quiz</span></h1>
+      <p class="by">Developed by <b>Vanshika Punjabi</b></p>
+    </header>
+
+    <div class="stats">
+      <span id="counter"></span>
+      <span id="mastered"></span>
+    </div>
+    <div class="progress"><div id="bar"></div></div>
+
+    <section id="study">
+      <div class="scene">
+        <div class="flipper" id="flipper" title="Tap to flip">
+          <div class="face front">
+            <span class="mastered-tag" id="tag" hidden>Mastered</span>
+            <span class="label">Question</span><p id="question"></p>
+          </div>
+          <div class="face back">
+            <span class="label">Answer</span><p id="answer"></p>
+          </div>
+        </div>
+      </div>
+
+      <button class="show" id="toggle">
+        <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span id="toggle-text">Show Answer</span>
+      </button>
+
+      <div class="nav">
+        <button id="prev"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span>Previous</span></button>
+        <button id="know" class="mid" title="Mark as mastered" aria-label="Mark as mastered"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></button>
+        <button id="next"><span>Next</span><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+      </div>
+    </section>
+
+    <section id="empty" class="empty" hidden>
+      <h2>No flashcards yet</h2>
+      <p>Tap "Add Card" to create your first one.</p>
+    </section>
+
+    <div class="tools">
+      <button class="tool" id="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add Card</button>
+      <button class="tool" id="edit"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Edit</button>
+      <button class="tool danger" id="delete"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Delete</button>
+      <button class="tool" id="shuffle"><svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Shuffle</button>
+    </div>
+
+    <footer>
+      <div>CodeAlpha App Development Internship &middot; Task 1</div>
+      <div>&copy; <span id="year"></span> Designed &amp; developed by <b>Vanshika Punjabi</b></div>
+      <div class="hint">Shortcuts: &larr; &rarr; navigate &middot; Space flips the card</div>
+    </footer>
+  </main>
+
+  <!-- Add / Edit dialog -->
+  <dialog id="dialog">
+    <form method="dialog" id="form">
+      <h2 id="dialog-title">Add Flashcard</h2>
+      <label for="q-input">Question (front)</label>
+      <textarea id="q-input" maxlength="300"></textarea>
+      <label for="a-input">Answer (back)</label>
+      <textarea id="a-input" maxlength="300"></textarea>
+      <div class="error" id="error"></div>
+      <div class="actions">
+        <button type="button" class="cancel" id="cancel">Cancel</button>
+        <button type="submit" class="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Delete confirmation -->
+  <dialog id="confirm">
+    <h2>Delete this card?</h2>
+    <p class="msg">This flashcard will be removed permanently.</p>
+    <div class="actions">
+      <button class="cancel" id="no">Cancel</button>
+      <button class="remove" id="yes">Delete</button>
+    </div>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+
+  <script>
+    const defaults = [
+      { q: "What does HTML stand for?", a: "HyperText Markup Language", k: false },
+      { q: "What does CSS stand for?", a: "Cascading Style Sheets", k: false },
+      { q: "Which language makes web pages interactive?", a: "JavaScript", k: false },
+      { q: "What does API stand for?", a: "Application Programming Interface", k: false },
+      { q: "What is the capital of France?", a: "Paris", k: false }
+    ];
+    const palettes = [
+      ["#818cf8", "#c084fc", "#38bdf8"], ["#fb7185", "#f59e0b", "#c084fc"],
+      ["#34d399", "#22d3ee", "#818cf8"], ["#f472b6", "#fb923c", "#facc15"],
+      ["#60a5fa", "#2dd4bf", "#a78bfa"]
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    let cards = [];
+    try { cards = JSON.parse(localStorage.getItem("flashcards_v2")); } catch (e) {}
+    if (!Array.isArray(cards)) cards = defaults.map((c) => ({ ...c }));
+
+    let index = 0, flipped = false, editing = false;
+    const flipper = $("flipper"), dialog = $("dialog"), confirmBox = $("confirm");
+    const qIn = $("q-input"), aIn = $("a-input");
+
+    $("year").textContent = new Date().getFullYear();
+
+    function save() { try { localStorage.setItem("flashcards_v2", JSON.stringify(cards)); } catch (e) {} }
+
+    function toast(msg) {
+      const t = $("toast"); t.textContent = msg; t.classList.add("on");
+      setTimeout(() => t.classList.remove("on"), 1800);
+    }
+
+    function applyPalette() {
+      const p = palettes[index % palettes.length], s = document.documentElement.style;
+      s.setProperty("--c1", p[0]); s.setProperty("--c2", p[1]); s.setProperty("--c3", p[2]);
+    }
+
+    function render() {
+      const has = cards.length > 0;
+      $("study").hidden = !has;
+      $("empty").hidden = has;
+      ["edit", "delete", "shuffle"].forEach((id) => ($(id).disabled = !has));
+      const done = cards.filter((c) => c.k).length;
+      $("mastered").textContent = `Mastered: ${done}/${cards.length}`;
+
+      if (!has) { $("counter").textContent = "0 cards"; $("bar").style.width = "0"; return; }
+
+      index = Math.min(index, cards.length - 1);
+      const c = cards[index];
+      $("question").textContent = c.q;
+      $("answer").textContent = c.a;
+      $("counter").textContent = `Card ${index + 1} of ${cards.length}`;
+      $("bar").style.width = `${((index + 1) / cards.length) * 100}%`;
+      $("prev").disabled = index === 0;
+      $("next").disabled = index === cards.length - 1;
+      $("tag").hidden = !c.k;
+      $("know").classList.toggle("on", !!c.k);
+      flipper.classList.toggle("flipped", flipped);
+      $("toggle-text").textContent = flipped ? "Hide Answer" : "Show Answer";
+      applyPalette();
+    }
+
+    function flip() { if (!cards.length) return; flipped = !flipped; render(); }
+
+    function go(step) {
+      const t = index + step;
+      if (t < 0 || t >= cards.length) return;
+      flipped = false; index = t; render();
+    }
+
+    function openDialog(isEdit) {
+      editing = isEdit;
+      $("dialog-title").textContent = isEdit ? "Edit Flashcard" : "Add Flashcard";
+      qIn.value = isEdit ? cards[index].q : "";
+      aIn.value = isEdit ? cards[index].a : "";
+      $("error").textContent = "";
+      dialog.showModal(); qIn.focus();
+    }
+
+    $("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const q = qIn.value.trim(), a = aIn.value.trim();
+      if (!q || !a) { $("error").textContent = "Please fill in both the question and the answer."; return; }
+      if (editing) { cards[index] = { ...cards[index], q, a }; toast("Card updated"); }
+      else { cards.push({ q, a, k: false }); index = cards.length - 1; toast("Card added"); }
+      flipped = false; save(); dialog.close(); render();
+    });
+
+    $("cancel").onclick = () => dialog.close();
+    $("add").onclick = () => openDialog(false);
+    $("edit").onclick = () => openDialog(true);
+    $("delete").onclick = () => confirmBox.showModal();
+    $("no").onclick = () => confirmBox.close();
+    $("yes").onclick = () => {
+      cards.splice(index, 1); flipped = false; save(); confirmBox.close(); render(); toast("Card deleted");
+    };
+
+    $("shuffle").onclick = () => {
+      for (let i = cards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      index = 0; flipped = false; save(); render(); toast("Cards shuffled");
+    };
+
+    $("know").onclick = () => {
+      cards[index].k = !cards[index].k; save(); render();
+      toast(cards[index].k ? "Marked as mastered" : "Removed from mastered");
+    };
+
+    $("toggle").onclick = flip;
+    flipper.onclick = flip;
+    $("prev").onclick = () => go(-1);
+    $("next").onclick = () => go(1);
+
+    document.addEventListener("keydown", (e) => {
+      if (dialog.open || confirmBox.open || /TEXTAREA|INPUT/.test(e.target.tagName)) return;
+      if (e.key === "ArrowRight") go(1);
+      else if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === " " && e.target.tagName !== "BUTTON") { e.preventDefault(); flip(); }
+    });
+
+    render();
+  </script>
+</body>
+</html>
